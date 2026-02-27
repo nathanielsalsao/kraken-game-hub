@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRAKEN // PATH_OVERRIDE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --neon: #00f2ff; 
+            --warning: #ff003c;
+            --safe: #00ff88;
+            --bg-dark: #00060a;
+        }
+        body { background: var(--bg-dark); font-family: 'Orbitron', sans-serif; color: white; text-transform: uppercase; overflow: hidden; transition: opacity 2s ease-in-out; }
+        
+    
+        body::after {
+            content: " ";
+            position: fixed; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            z-index: 1000; background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+      
+        .grid-bg {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(to right, rgba(0, 242, 255, 0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+            mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
+        }
+
+        .font-mono-tech { font-family: 'Share Tech Mono', monospace; }
+        .neon-border { border: 1px solid var(--neon); box-shadow: 0 0 20px rgba(0, 242, 255, 0.15); }
+        .neon-text { color: var(--neon); text-shadow: 0 0 10px var(--neon); }
+        
+     
+        .arrow-node { 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0% 100%);
+        }
+
+   
+        #abort-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle, rgba(20, 0, 5, 0.95) 0%, rgba(0, 0, 0, 1) 100%);
+            z-index: 5000; display: none; flex-direction: column; justify-content: center; align-items: center;
+            border-top: 2px solid var(--warning); border-bottom: 2px solid var(--warning);
+        }
+
+        #abort-overlay::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--warning); box-shadow: 0 0 20px var(--warning);
+            animation: abort-scan 0.6s linear infinite;
+        }
+
+        .abort-text { 
+            font-size: 6rem; font-weight: 900; color: #fff;
+            text-shadow: 0 0 20px var(--warning); letter-spacing: 20px; 
+            animation: glitch-vibrate 0.15s infinite; 
+        }
+
+        @keyframes abort-scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        
+        @keyframes glitch-vibrate {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px) skewX(2deg); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px) skewX(-2deg); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .system-crash {
+            filter: brightness(0.4) contrast(1.5) blur(15px) grayscale(1) !important;
+            opacity: 0 !important;
+            transition: all 2s cubic-bezier(0.4, 0, 1, 1) !important;
+            pointer-events: none;
+        }
+
+        .success-flash { animation: flash 0.3s ease-out; }
+        @keyframes flash {
+            0% { background: rgba(0, 255, 136, 0.2); }
+            100% { background: transparent; }
+        }
+
+        .clip-vault { clip-path: polygon(0 0, 100% 0, 85% 100%, 0% 100%); }
+    </style>
+</head>
+<body class="h-screen flex flex-col items-center justify-between p-8">
+    <div class="grid-bg"></div>
+
+    <div id="abort-overlay">
+        <h2 class="abort-text">ABORT</h2>
+        <div class="font-mono-tech text-white tracking-[5px] mt-4 bg-black/40 px-4 py-1 border-l-2 border-red-600">TERMINATING_SESSION // CONNECTION_REDACTED</div>
+    </div>
+
+    <div class="w-full flex justify-between items-start z-10">
+        <div class="nav-header">
+            <button onclick="exitSequence()" class="clip-vault bg-transparent border border-cyan-400 text-cyan-400 font-mono-tech text-[10px] px-8 py-3 hover:bg-cyan-400 hover:text-black transition-all duration-300 flex items-center gap-2 tracking-[3px]">
+                RETURN_TO_VAULT
+            </button>
+        </div>
+        <div class="text-right">
+            <h1 class="text-4xl font-black tracking-[12px] neon-text italic">PATH_OVERRIDE</h1>
+            <div class="flex items-center justify-end gap-2 mt-1">
+                <span class="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                <p id="status-msg" class="font-mono-tech text-[10px] text-cyan-400 opacity-60">AWAITING_LINK...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col items-center gap-16 relative">
+        <div class="absolute -top-10 -left-10 w-20 h-20 border-t-2 border-l-2 border-cyan-500/20"></div>
+        <div class="absolute -bottom-10 -right-10 w-20 h-20 border-b-2 border-r-2 border-cyan-500/20"></div>
+
+        <div id="game-viewport" class="text-center p-12 rounded-lg bg-black/40 backdrop-blur-sm border border-white/5">
+            <span class="font-mono-tech text-[10px] text-cyan-500 opacity-40 block mb-10 tracking-[6px]">ENCRYPTION_STREAM_INPUT</span>
+            <div id="arrow-container" class="flex gap-5 h-24 items-center justify-center min-w-[400px]">
+                <p class="text-sm opacity-50 tracking-[8px] animate-pulse border border-cyan-500/20 px-6 py-4">PRESS_SPACE_TO_START_BREACH</p>
+            </div>
+        </div>
+
+        <div class="w-[500px] flex flex-col gap-3">
+            <div class="flex justify-between font-mono-tech text-[10px] tracking-widest">
+                <span class="text-red-500/60 uppercase">Kraken_Trace_Progress</span>
+                <span id="entropy-pct" class="text-red-500">0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-gray-950 border border-red-900/20 overflow-hidden p-[1px]">
+                <div id="firewall-bar" class="h-full bg-red-600 w-0 transition-all duration-100 shadow-[0_0_15px_#ff003c]"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-4xl flex justify-between items-center p-8 bg-slate-950/40 border-t border-cyan-900/30 font-mono-tech backdrop-blur-md">
+        <div class="text-left">
+            <span class="block text-[10px] opacity-40 uppercase tracking-tighter">Session_Score</span>
+            <span id="score-val" class="text-4xl text-white font-bold tabular-nums">00</span>
+        </div>
+        
+        <div class="text-center px-16 border-x border-white/5">
+            <span class="block text-[10px] opacity-40 uppercase text-emerald-500 tracking-widest">Optimal_Record</span>
+            <span id="high-score" class="text-4xl text-emerald-400 font-bold tabular-nums">00</span>
+        </div>
+
+        <div class="text-right">
+            <span class="block text-[10px] opacity-40 uppercase tracking-tighter">Security_Lv</span>
+            <span id="level-val" class="text-4xl text-cyan-400 font-bold tabular-nums">01</span>
+        </div>
+    </div>
+
+    <script>
+        const arrowContainer = document.getElementById('arrow-container');
+        const firewallBar = document.getElementById('firewall-bar');
+        const entropyPct = document.getElementById('entropy-pct');
+        const scoreVal = document.getElementById('score-val');
+        const levelVal = document.getElementById('level-val');
+        const highScoreEl = document.getElementById('high-score');
+        const statusMsg = document.getElementById('status-msg');
+        const abortOverlay = document.getElementById('abort-overlay');
+
+        const directions = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+        const icons = { 'ArrowUp': '↑', 'ArrowDown': '↓', 'ArrowLeft': '←', 'ArrowRight': '→' };
+        
+        let sequence = [];
+        let currentIndex = 0;
+        let score = 0;
+        let level = 1;
+        let gameActive = false;
+        let firewallPos = 0;
+        let gameLoop;
+
+    
+        function exitSequence() {
+            gameActive = false;
+            clearInterval(gameLoop);
+            abortOverlay.style.display = 'flex';
+            document.body.classList.add('system-crash');
+            setTimeout(() => {
+                window.location.href = '../vault.html';
+            }, 2000);
+        }
+
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('kraken_path_pb');
+            highScoreEl.innerText = saved ? saved.padStart(2, '0') : "00";
+        });
+
+        function initSequence() {
+            arrowContainer.innerHTML = '';
+            sequence = [];
+            currentIndex = 0;
+            const count = Math.min(4 + Math.floor(level/2), 10); 
+            
+            for(let i=0; i<count; i++) {
+                const dir = directions[Math.floor(Math.random() * directions.length)];
+                sequence.push(dir);
+                const div = document.createElement('div');
+                div.id = `node-${i}`;
+                div.className = "arrow-node w-14 h-16 flex items-center justify-center border border-cyan-900/50 text-xl opacity-20 bg-cyan-950/20";
+                div.innerText = icons[dir];
+                arrowContainer.appendChild(div);
+            }
+            updateVisuals();
+        }
+
+        function updateVisuals() {
+            sequence.forEach((_, i) => {
+                const node = document.getElementById(`node-${i}`);
+                if (i === currentIndex) {
+                    node.className = "arrow-node w-16 h-20 flex items-center justify-center border-2 border-cyan-400 bg-cyan-400/20 text-3xl opacity-100 scale-110 shadow-[0_0_25px_rgba(0,242,255,0.4)] z-10";
+                } else if (i < currentIndex) {
+                    node.className = "arrow-node w-14 h-16 flex items-center justify-center border border-emerald-500/50 text-emerald-500 opacity-40 bg-emerald-500/5";
+                    node.innerText = "✓";
+                }
+            });
+        }
+
+     
+        function startGame() {
+            gameActive = true;
+            firewallPos = 0;
+            score = 0;
+            level = 1;
+            scoreVal.innerText = "00";
+            levelVal.innerText = "01";
+            statusMsg.innerText = "STATUS: BREACH_IN_PROGRESS...";
+            initSequence();
+
+            if(gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(() => {
+                firewallPos += (0.15 + (level * 0.05)); 
+                firewallBar.style.width = firewallPos + "%";
+                entropyPct.innerText = Math.floor(firewallPos) + "%";
+                if (firewallPos >= 100) triggerFail();
+            }, 30);
+        }
+
+        function triggerFail() {
+            gameActive = false;
+            clearInterval(gameLoop);
+            
+            const currentPB = localStorage.getItem('kraken_path_pb') || 0;
+            if (score > parseInt(currentPB)) {
+                localStorage.setItem('kraken_path_pb', score);
+                highScoreEl.innerText = score.toString().padStart(2, '0');
+            }
+            
+            abortOverlay.querySelector('.abort-text').innerText = "SYSTEM_FAIL";
+            abortOverlay.style.display = 'flex';
+            
+            setTimeout(() => {
+                abortOverlay.style.display = 'none';
+                location.reload();
+            }, 3000);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) {
+                if (e.code === 'Space') startGame();
+                return;
+            }
+
+            if (directions.includes(e.code)) {
+                if (e.code === sequence[currentIndex]) {
+                    currentIndex++;
+                    if (currentIndex === sequence.length) {
+                        score++;
+                        level++;
+                        scoreVal.innerText = score.toString().padStart(2, '0');
+                        levelVal.innerText = level.toString().padStart(2, '0');
+                        firewallPos = 0;
+                        firewallBar.style.width = "0%";
+                        entropyPct.innerText = "0%";
+                        document.getElementById('game-viewport').classList.add('success-flash');
+                        setTimeout(() => document.getElementById('game-viewport').classList.remove('success-flash'), 300);
+                        initSequence();
+                    } else {
+                        updateVisuals();
+                    }
+                } else {
+                    firewallPos += 10;
+                    firewallBar.classList.add('bg-white');
+                    setTimeout(() => firewallBar.classList.remove('bg-white'), 100);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

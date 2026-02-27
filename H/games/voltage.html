@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRAKEN // VOLTAGE_SYNC_PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --neon: #00ff88; 
+            --warning: #ff003c;
+            --bg-dark: #000a0f;
+            --accent: #00f2ff;
+        }
+        body { 
+            background: var(--bg-dark); 
+            font-family: 'Orbitron', sans-serif; 
+            color: white; 
+            text-transform: uppercase; 
+            overflow: hidden;
+            background-image: radial-gradient(circle at 50% 50%, #001a1a 0%, var(--bg-dark) 100%);
+            transition: opacity 2s ease-in-out;
+        }
+        
+  
+        body::before {
+            content: ""; position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(0, 255, 136, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px; z-index: 1; pointer-events: none;
+        }
+        body::after {
+            content: " "; position: fixed; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 1000; background-size: 100% 3px, 3px 100%; pointer-events: none;
+        }
+
+        .font-mono-tech { font-family: 'Share Tech Mono', monospace; }
+        .neon-glow { text-shadow: 0 0 15px var(--neon), 0 0 30px rgba(0, 255, 136, 0.3); }
+        
+      
+        #abort-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle, rgba(20, 0, 5, 0.95) 0%, rgba(0, 0, 0, 1) 100%);
+            z-index: 5000; display: none; flex-direction: column;
+            justify-content: center; align-items: center; pointer-events: none;
+            border-top: 2px solid var(--warning); border-bottom: 2px solid var(--warning);
+        }
+
+        #abort-overlay::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--warning); box-shadow: 0 0 20px var(--warning);
+            animation: abort-scan 0.6s linear infinite;
+        }
+
+        .abort-text {
+            font-size: 6rem; font-weight: 900; color: #fff;
+            text-shadow: 0 0 20px var(--warning); letter-spacing: 20px;
+            animation: glitch-vibrate 0.15s infinite;
+            font-style: italic;
+        }
+
+        .abort-subtext {
+            font-family: 'Share Tech Mono'; font-size: 1.1rem; color: var(--warning);
+            padding: 5px 20px; margin-top: 15px; letter-spacing: 5px; border-left: 2px solid var(--warning);
+            background: rgba(0,0,0,0.4);
+        }
+
+        @keyframes abort-scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        @keyframes glitch-vibrate {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px) skewX(2deg); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px) skewX(-2deg); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .system-crash {
+            filter: brightness(0.4) contrast(1.5) blur(15px) grayscale(1);
+            transition: all 2s cubic-bezier(0.4, 0, 1, 1) !important;
+            opacity: 0;
+        }
+    
+
+        #rail {
+            width: 600px; height: 100px;
+            background: rgba(0, 20, 20, 0.6);
+            border: 2px solid rgba(0, 255, 136, 0.15);
+            position: relative; overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%);
+        }
+
+        #sync-zone {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            width: 80px; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.2), transparent);
+            border-left: 2px solid var(--neon); border-right: 2px solid var(--neon);
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.3);
+            transition: left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), width 0.3s ease;
+        }
+
+        #signal-bar {
+            position: absolute; top: 0; left: 0;
+            width: 10px; height: 100%;
+            background: #fff;
+            box-shadow: 0 0 20px #fff, 0 0 40px var(--accent);
+            z-index: 10;
+        }
+
+        @keyframes sync-pulse {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.02); filter: brightness(1.5); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+        .success-hit { animation: sync-pulse 0.3s ease-out; }
+
+        .fail-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(8px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-10px, 0, 0); }
+            40%, 60% { transform: translate3d(10px, 0, 0); }
+        }
+
+        .hud-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(0, 255, 136, 0.1);
+            backdrop-filter: blur(4px);
+        }
+        
+        .progress-bar {
+            height: 2px; background: var(--neon); width: 0%;
+            box-shadow: 0 0 10px var(--neon);
+            transition: width 0.3s ease;
+        }
+
+        .clip-vault { clip-path: polygon(0 0, 100% 0, 85% 100%, 0% 100%); }
+    </style>
+</head>
+<body class="h-screen flex flex-col items-center justify-between p-6">
+
+    <div id="abort-overlay">
+        <h2 class="abort-text">ABORT</h2>
+        <div class="abort-subtext">TERMINATING_SESSION // CONNECTION_REDACTED</div>
+    </div>
+
+    <div class="w-full flex justify-between items-start z-10">
+        <button onclick="exitSequence()" class="clip-vault bg-transparent border border-cyan-500/50 text-cyan-400 font-mono-tech text-[11px] px-8 py-3 hover:bg-cyan-500 hover:text-black transition-all tracking-[3px] group">
+            <span class="inline-block transition-transform group-hover:-translate-x-1"><</span> RET_TO_VAULT
+        </button>
+        <div class="text-right">
+            <div class="flex items-center gap-4 justify-end">
+                <div class="h-[2px] w-24 bg-gradient-to-l from-emerald-500 to-transparent"></div>
+                <h1 class="text-4xl font-black tracking-[12px] neon-glow italic">VOLTAGE_SYNC</h1>
+            </div>
+            <p id="status-msg" class="font-mono-tech text-[10px] text-emerald-400 opacity-70 uppercase tracking-[4px] mt-1">Status // Signal_Ready</p>
+        </div>
+    </div>
+
+    <div class="flex flex-col items-center gap-12 relative z-10">
+        <div id="game-viewport" class="text-center p-20 rounded-2xl bg-black/20 border border-emerald-500/10 shadow-2xl relative overflow-hidden backdrop-blur-md">
+            <div class="absolute top-4 left-4 w-4 h-[1px] bg-emerald-500/40"></div>
+            <div class="absolute top-4 left-4 w-[1px] h-4 bg-emerald-500/40"></div>
+            
+            <span class="font-mono-tech text-[11px] text-emerald-500 opacity-50 block mb-12 tracking-[10px] animate-pulse">WAVEFORM_ANALYSIS_ACTIVE</span>
+            
+            <div id="rail">
+                <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, var(--neon) 0, var(--neon) 1px, transparent 0, transparent 50%); background-size: 10px 10px;"></div>
+                <div id="sync-zone"></div>
+                <div id="signal-bar"></div>
+            </div>
+
+            <div class="flex justify-between mt-12 px-2">
+                <div class="font-mono-tech text-[10px] text-white/30 tracking-[3px] uppercase">Input_Type: [SPACE]</div>
+                <div id="hit-type" class="font-mono-tech text-[10px] text-emerald-500 tracking-[3px]">AWAITING_INPUT</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-4xl grid grid-cols-3 gap-6 z-10">
+        <div class="hud-card p-6">
+            <span class="block text-[10px] opacity-40 mb-2 tracking-widest">CYCLES_SYNCED</span>
+            <div class="flex items-end gap-3">
+                <span id="score-val" class="text-4xl text-white font-black leading-none">00</span>
+                <div class="flex-grow mb-1 h-[2px] bg-white/5"><div id="score-progress" class="progress-bar"></div></div>
+            </div>
+        </div>
+
+        <div class="hud-card p-6 border-emerald-500/30 bg-emerald-500/5">
+            <span class="block text-[10px] text-emerald-500 mb-2 tracking-widest">STABILITY_RECORD</span>
+            <div class="flex items-center justify-between">
+                <span id="high-score" class="text-4xl text-emerald-400 font-black leading-none">00</span>
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+            </div>
+        </div>
+
+        <div class="hud-card p-6">
+            <span class="block text-[10px] opacity-40 mb-2 tracking-widest">HARMONIC_LEVEL</span>
+            <div class="flex items-end gap-3">
+                <span id="level-val" class="text-4xl text-emerald-500 font-black italic leading-none">01</span>
+                <div class="flex-grow mb-1 h-[2px] bg-white/5"><div id="level-progress" class="progress-bar" style="width: 10%"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const signalBar = document.getElementById('signal-bar');
+        const syncZone = document.getElementById('sync-zone');
+        const rail = document.getElementById('rail');
+        const scoreVal = document.getElementById('score-val');
+        const levelVal = document.getElementById('level-val');
+        const highScoreEl = document.getElementById('high-score');
+        const statusMsg = document.getElementById('status-msg');
+        const abortOverlay = document.getElementById('abort-overlay');
+        const viewport = document.getElementById('game-viewport');
+        const hitType = document.getElementById('hit-type');
+        const scoreProg = document.getElementById('score-progress');
+        const levelProg = document.getElementById('level-progress');
+
+        let score = 0, level = 1, gameActive = false;
+        let time = 0, frequency = 0.04;
+        let animationFrame;
+
+    
+        function exitSequence() {
+            gameActive = false;
+            cancelAnimationFrame(animationFrame);
+            
+       
+            abortOverlay.style.display = 'flex';
+            
+          
+            document.body.classList.add('system-crash');
+
+            setTimeout(() => { 
+                window.location.href = '../vault.html'; 
+            }, 2000);
+        }
+
+        function update() {
+            if (!gameActive) return;
+            time += frequency;
+            const rawPos = (Math.sin(time) + 1) / 2;
+            const pixelPos = rawPos * (rail.clientWidth - signalBar.clientWidth);
+            signalBar.style.left = pixelPos + 'px';
+            animationFrame = requestAnimationFrame(update);
+        }
+
+        function resetGame() {
+            gameActive = false;
+            cancelAnimationFrame(animationFrame);
+            
+            const currentPB = localStorage.getItem('voltage_sync_pb') || 0;
+            if (score > parseInt(currentPB)) {
+                localStorage.setItem('voltage_sync_pb', score);
+                highScoreEl.innerText = score.toString().padStart(2, '0');
+            }
+
+            viewport.classList.add('fail-shake');
+            statusMsg.innerText = "CRITICAL_DESYNC";
+            statusMsg.style.color = "#ff003c";
+            hitType.innerText = "LINK_FAILED";
+
+            setTimeout(() => {
+                score = 0; level = 1; frequency = 0.04;
+                scoreVal.innerText = "00";
+                levelVal.innerText = "01";
+                scoreProg.style.width = "0%";
+                levelProg.style.width = "10%";
+                syncZone.style.width = "80px";
+                syncZone.style.left = "50%";
+                viewport.classList.remove('fail-shake');
+                statusMsg.style.color = "";
+                statusMsg.innerText = "STATUS // SIGNAL_READY";
+                hitType.innerText = "AWAITING_INPUT";
+            }, 500);
+        }
+
+        function checkSync() {
+            const barRect = signalBar.getBoundingClientRect();
+            const zoneRect = syncZone.getBoundingClientRect();
+            
+            if (barRect.left >= zoneRect.left - 4 && barRect.right <= zoneRect.right + 4) {
+                score++;
+                hitType.innerText = "SYNC_STABLE";
+
+                if (score % 3 === 0) {
+                    level++; frequency += 0.015;
+                    syncZone.style.width = Math.max(30, 80 - (level * 4)) + 'px';
+                    if(level > 2) syncZone.style.left = (15 + Math.random() * 70) + '%';
+                    levelProg.style.width = Math.min(100, level * 10) + "%";
+                }
+
+                scoreVal.innerText = score.toString().padStart(2, '0');
+                levelVal.innerText = level.toString().padStart(2, '0');
+                scoreProg.style.width = ((score % 3) / 3 * 100) + "%";
+
+                viewport.classList.add('success-hit');
+                setTimeout(() => viewport.classList.remove('success-hit'), 300);
+            } else {
+                resetGame();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!gameActive) {
+                    gameActive = true;
+                    statusMsg.innerText = "STATUS // HARMONIC_LINK_ACTIVE";
+                    update();
+                } else {
+                    checkSync();
+                }
+            }
+        });
+
+        window.addEventListener('load', () => {
+            const saved = localStorage.getItem('voltage_sync_pb');
+            highScoreEl.innerText = saved ? saved.padStart(2, '0') : "00";
+        });
+    </script>
+</body>
+</html>
