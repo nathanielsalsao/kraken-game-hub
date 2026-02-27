@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NEURAL_SYNC // CALIBRATION_V2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --neon: #00f2ff; 
+            --warning: #ff003c;
+            --safe: #00ff88;
+            --bg-dark: #00040a;
+            --glow: drop-shadow(0 0 8px var(--neon));
+        }
+
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); overflow: hidden; 
+            font-family: 'Orbitron', sans-serif; color: #fff; text-transform: uppercase; 
+        }
+
+
+        body::before {
+            content: " "; position: absolute; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            z-index: 1000; pointer-events: none;
+        }
+
+        .hud-bracket { position: fixed; width: 60px; height: 60px; border: 1px solid var(--neon); z-index: 600; opacity: 0.3; filter: var(--glow); }
+        .tl { top: 30px; left: 30px; border-right: none; border-bottom: none; }
+        .tr { top: 30px; right: 30px; border-left: none; border-bottom: none; }
+        .bl { bottom: 30px; left: 30px; border-right: none; border-top: none; }
+        .br { bottom: 30px; right: 30px; border-left: none; border-top: none; }
+
+        .secure-data {
+            position: fixed; font-family: 'Share Tech Mono'; font-size: 10px; color: var(--neon);
+            opacity: 0.5; z-index: 600; pointer-events: none; line-height: 1.4;
+        }
+        .top-left-info { top: 100px; left: 30px; border-left: 2px solid var(--neon); padding-left: 10px; }
+        .bottom-right-info { bottom: 100px; right: 30px; text-align: right; border-right: 2px solid var(--neon); padding-right: 10px; }
+
+
+        #game-hud {
+            position: fixed; top: 40px; width: 100%; text-align: center;
+            pointer-events: none; z-index: 700;
+        }
+        .score-display { font-size: 4rem; font-weight: 900; filter: var(--glow); letter-spacing: 10px; }
+        .status-msg { font-family: 'Share Tech Mono'; font-size: 12px; color: var(--neon); letter-spacing: 4px; opacity: 0.7; }
+
+  
+        #leaderboard-overlay {
+            position: fixed; inset: 0; background: rgba(0, 4, 10, 0.95);
+            z-index: 2000; display: none; flex-direction: column; 
+            justify-content: center; align-items: center; backdrop-filter: blur(10px);
+        }
+        .lb-title { font-size: 2rem; letter-spacing: 15px; color: var(--warning); margin-bottom: 30px; }
+        .lb-container { width: 400px; font-family: 'Share Tech Mono'; border: 1px solid rgba(0, 242, 255, 0.2); padding: 20px; }
+        .lb-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(0, 242, 255, 0.1); font-size: 14px; }
+        .lb-row span:last-child { color: var(--neon); font-weight: bold; }
+
+        .btn-action {
+            margin-top: 30px; background: transparent; border: 1px solid var(--neon);
+            color: var(--neon); padding: 12px 40px; font-family: 'Orbitron'; 
+            cursor: pointer; transition: 0.3s; letter-spacing: 3px;
+        }
+        .btn-action:hover { background: var(--neon); color: var(--bg-dark); box-shadow: 0 0 20px var(--neon); }
+
+        canvas#bg-canvas { position: fixed; inset: 0; z-index: -1; opacity: 0.15; }
+        canvas#game-canvas { position: fixed; inset: 0; z-index: 50; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <div class="hud-bracket tl"></div><div class="hud-bracket tr"></div>
+    <div class="hud-bracket bl"></div><div class="hud-bracket br"></div>
+
+    <div class="secure-data top-left-info">
+        ID: CALIBRATOR_9X<br>
+        TASK: NEURAL_SYNC<br>
+        ACCURACY: <span id="accuracy-stat">100%</span>
+    </div>
+
+    <div class="secure-data bottom-right-info">
+        AUTH_STATUS: IN_PROGRESS<br>
+        KERNEL: v4.0.12_STABLE<br>
+        <span id="dynamic-key">KEY: 0x88AF_221</span>
+    </div>
+
+    <div id="game-hud">
+        <div class="status-msg">SYNC_CALIBRATION_IN_PROGRESS</div>
+        <div class="score-display" id="score-display">000</div>
+    </div>
+
+    <div id="leaderboard-overlay">
+        <div class="lb-title">SESSION_TERMINATED</div>
+        <div class="lb-container" id="leaderboard-list"></div>
+        <button class="btn-action" onclick="resetGame()">RE-CALIBRATE</button>
+        <button onclick="exitSequence()" style="margin-top:20px; background:none; border:none; color:var(--warning); cursor:pointer; font-family:'Share Tech Mono'; font-size:0.7rem; text-decoration:underline;">[ TERMINATE_CONNECTION ]</button>
+    </div>
+
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="game-canvas"></canvas>
+
+    <script>
+        const bgCanvas = document.getElementById('bg-canvas');
+        const gameCanvas = document.getElementById('game-canvas');
+        const bctx = bgCanvas.getContext('2d');
+        const gctx = gameCanvas.getContext('2d');
+        
+        let w, h, score = 0, playing = true;
+        let nodes = [];
+        let spawnRate = 1400;
+        let lastSpawn = 0;
+        let drops;
+
+        function init() {
+            w = bgCanvas.width = gameCanvas.width = window.innerWidth;
+            h = bgCanvas.height = gameCanvas.height = window.innerHeight;
+            drops = new Array(Math.floor(w / 20)).fill(1);
+        }
+
+        function drawBG() {
+            bctx.fillStyle = 'rgba(0, 4, 10, 0.2)';
+            bctx.fillRect(0, 0, w, h);
+            bctx.fillStyle = '#00f2ff20';
+            bctx.font = '12px monospace';
+            drops.forEach((y, i) => {
+                const text = String.fromCharCode(Math.random() * 128);
+                bctx.fillText(text, i * 20, y * 20);
+                if (y * 20 > h && Math.random() > 0.98) drops[i] = 0;
+                drops[i]++;
+            });
+            if(Math.random() > 0.95) {
+                document.getElementById('dynamic-key').innerText = "KEY: 0x" + Math.floor(Math.random()*10000).toString(16).toUpperCase();
+            }
+        }
+
+
+        class Node {
+            constructor() {
+                this.x = Math.random() * (w - 300) + 150;
+                this.y = Math.random() * (h - 300) + 150;
+                this.r = 0;
+                this.maxR = 60;
+                this.speed = 0.8 + (score / 200);
+            }
+            update() {
+                this.r += this.speed;
+                if (this.r > this.maxR + 15) gameOver();
+            }
+            draw() {
+           
+                gctx.beginPath();
+                gctx.arc(this.x, this.y, this.maxR, 0, Math.PI * 2);
+                gctx.strokeStyle = 'rgba(0, 242, 255, 0.3)';
+                gctx.lineWidth = 1;
+                gctx.stroke();
+
+       
+                gctx.beginPath();
+                gctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                gctx.strokeStyle = this.r > this.maxR - 5 ? '#00ff88' : '#00f2ff';
+                gctx.lineWidth = 3;
+                gctx.stroke();
+                
+                
+                if(this.r > this.maxR - 10) {
+                    gctx.shadowBlur = 15;
+                    gctx.shadowColor = gctx.strokeStyle;
+                    gctx.stroke();
+                    gctx.shadowBlur = 0;
+                }
+            }
+        }
+
+        gameCanvas.addEventListener('mousedown', (e) => {
+            if (!playing) return;
+            let hit = false;
+            for (let i = nodes.length - 1; i >= 0; i--) {
+                let n = nodes[i];
+                let dist = Math.hypot(e.clientX - n.x, e.clientY - n.y);
+                if (dist < n.maxR + 20) {
+                    let accuracy = Math.abs(n.r - n.maxR);
+                    if (accuracy < 12) {
+                        score += 10;
+                        document.getElementById('score-display').innerText = score.toString().padStart(3, '0');
+                        nodes.splice(i, 1);
+                        hit = true;
+                        break;
+                    }
+                }
+            }
+            if (!hit && nodes.length > 0) gameOver();
+        });
+
+        function gameOver() {
+            playing = false;
+            saveScore(score);
+            showLeaderboard();
+        }
+
+        function saveScore(s) {
+            let scores = JSON.parse(localStorage.getItem('sync_scores') || '[]');
+            scores.push({val: s, id: 'USER_' + Math.floor(Math.random()*999)});
+            scores.sort((a, b) => b.val - a.val);
+            localStorage.setItem('sync_scores', JSON.stringify(scores.slice(0, 5)));
+        }
+
+        function showLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            const scores = JSON.parse(localStorage.getItem('sync_scores') || '[]');
+            list.innerHTML = scores.map((s, i) => `
+                <div class="lb-row">
+                    <span>${i + 1}. ${s.id}</span>
+                    <span>${s.val} PTS</span>
+                </div>
+            `).join('');
+            document.getElementById('leaderboard-overlay').style.display = 'flex';
+        }
+
+        function resetGame() {
+            score = 0;
+            nodes = [];
+            playing = true;
+            document.getElementById('score-display').innerText = "000";
+            document.getElementById('leaderboard-overlay').style.display = 'none';
+            loop();
+        }
+
+        function exitSequence() {
+            window.location.href = '../vault.html';
+        }
+
+        function loop(time = 0) {
+            drawBG();
+            if (!playing) return;
+            
+            gctx.clearRect(0, 0, w, h);
+
+            if (time - lastSpawn > Math.max(400, spawnRate - (score * 3))) {
+                nodes.push(new Node());
+                lastSpawn = time;
+            }
+
+            nodes.forEach(n => {
+                n.update();
+                n.draw();
+            });
+
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+        loop();
+    </script>
+</body>
+</html>

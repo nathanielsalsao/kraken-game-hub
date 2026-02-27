@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KRAKEN // OVERRIDE_V6</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --neon: #00f2ff; 
+            --warning: #ff003c;
+            --bg-dark: #000505;
+        }
+
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); overflow: hidden; 
+            font-family: 'Share Tech Mono', monospace; color: #fff;
+            user-select: none;
+            transition: opacity 2s ease-in-out;
+        }
+
+
+        #abort-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle, rgba(20, 0, 5, 0.95) 0%, rgba(0, 0, 0, 1) 100%);
+            z-index: 5000; display: none; flex-direction: column;
+            justify-content: center; align-items: center; pointer-events: none;
+            border-top: 2px solid var(--warning); border-bottom: 2px solid var(--warning);
+        }
+
+        #abort-overlay::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--warning); box-shadow: 0 0 20px var(--warning);
+            animation: abort-scan 0.6s linear infinite;
+        }
+
+        .abort-text {
+            font-family: 'Orbitron'; font-size: 6rem; font-weight: 900; color: #fff;
+            text-shadow: 0 0 20px var(--warning); letter-spacing: 20px;
+            animation: glitch-vibrate 0.15s infinite;
+        }
+
+        .abort-subtext {
+            font-family: 'Share Tech Mono'; font-size: 1.1rem; color: var(--warning);
+            padding: 5px 20px; margin-top: 15px; letter-spacing: 5px; border-left: 2px solid var(--warning);
+        }
+
+        @keyframes abort-scan { 0% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        @keyframes glitch-vibrate {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px) skewX(2deg); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px) skewX(-2deg); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .system-crash {
+            filter: brightness(0.4) contrast(1.5) blur(15px) grayscale(1);
+            transition: all 2s cubic-bezier(0.4, 0, 1, 1) !important;
+        }
+
+        /* --- ORIGINAL KRAKEN UI --- */
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: 0; opacity: 0.15; pointer-events: none; }
+
+        .nav-header { position: fixed; top: 20px; left: 20px; z-index: 2000; }
+        .back-vault {
+            background: transparent; border: 1px solid var(--neon); color: var(--neon);
+            padding: 8px 15px; cursor: pointer; font-family: 'Share Tech Mono';
+            font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+            transition: 0.3s;
+        }
+        .back-vault:hover { background: var(--neon); color: #000; }
+
+        #barrier-line {
+            position: fixed; left: 50px; top: 0; bottom: 0;
+            width: 2px; background: var(--warning); box-shadow: 0 0 15px var(--warning);
+            z-index: 50; opacity: 0.5;
+        }
+
+        #hud {
+            position: fixed; top: 20px; width: 100%;
+            display: flex; justify-content: flex-end;
+            padding: 0 40px; box-sizing: border-box; z-index: 100;
+            text-transform: uppercase; letter-spacing: 3px; font-size: 14px;
+            gap: 30px;
+        }
+        .stat span { color: var(--neon); font-weight: bold; font-family: 'Orbitron'; }
+        .stat.hp span { color: var(--warning); }
+
+        .word-node {
+            position: absolute; color: #fff; font-size: 1.5rem;
+            letter-spacing: 3px; padding: 5px 15px; background: rgba(0,0,0,0.7);
+            border-left: 3px solid var(--neon); white-space: nowrap; z-index: 60;
+            will-change: transform, opacity;
+        }
+
+        /* Word Destruction Animation */
+        .explode {
+            animation: abort-seq 0.4s ease-out forwards;
+            pointer-events: none;
+            border-left-color: #fff !important;
+            color: var(--neon) !important;
+        }
+
+        @keyframes abort-seq {
+            0% { transform: translateX(var(--x)) scale(1); opacity: 1; }
+            100% { transform: translateX(var(--x)) scale(2.5); opacity: 0; filter: blur(15px); }
+        }
+
+        #input-wrap {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 500px; z-index: 300; text-align: center;
+        }
+        #terminal-input {
+            width: 100%; background: transparent; border: none;
+            border-bottom: 2px solid var(--neon);
+            color: var(--neon); font-family: 'Share Tech Mono'; font-size: 2.5rem;
+            text-align: center; outline: none; text-transform: uppercase;
+        }
+
+        .shake { animation: shake 0.2s linear; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-10px);} 75% {transform: translateX(10px);} }
+    </style>
+</head>
+<body id="body-main">
+
+    <div id="abort-overlay">
+        <h2 class="abort-text">ABORT</h2>
+        <div class="abort-subtext">TERMINATING_SESSION // CONNECTION_REDACTED</div>
+    </div>
+
+    <canvas id="bg-canvas"></canvas>
+    <div id="barrier-line"></div>
+
+    <div class="nav-header">
+        <button class="back-vault" onclick="triggerExitSequence()">[ EXIT_TERMINAL ]</button>
+    </div>
+
+    <div id="hud">
+        <div class="stat">SCORE: <span id="score">000000</span></div>
+        <div class="stat hp">CORE: <span id="health">100%</span></div>
+    </div>
+
+    <div id="game-area"></div>
+
+    <div id="input-wrap">
+        <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" autofocus>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+        const input = document.getElementById('terminal-input');
+        const scoreEl = document.getElementById('score');
+        const healthEl = document.getElementById('health');
+        const body = document.getElementById('body-main');
+
+        let score = 0, health = 100, words = [], playing = true, lastSpawn = 0, spawnRate = 1800;
+
+        const library = ["ROOT", "SUDO", "KRAKEN", "FIREWALL", "KERNEL", "BREACH", "SATELLITE", "BITRATE", "SEQUENCE", "COMMAND", "MALWARE", "NETWORK", "VOID", "ENCRYPT", "DECRYPT", "BINARY", "ALGORITHM", "PHISH", "TROJAN", "STEALTH", "UPLINK", "TUNNEL", "MATRIX", "SIGNAL", "SOCKET", "PACKET"];
+
+        input.focus();
+        input.addEventListener('blur', () => { if(playing) setTimeout(() => input.focus(), 10); });
+
+        function initMatrix() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            columns = canvas.width / 16;
+            drops = Array(Math.floor(columns)).fill(1);
+        }
+
+        function drawMatrix() {
+            ctx.fillStyle = "rgba(0, 5, 5, 0.15)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00f2ff";
+            ctx.font = "16px monospace";
+            for (let i = 0; i < drops.length; i++) {
+                const text = String.fromCharCode(0x30A0 + Math.random() * 33);
+                ctx.fillText(text, i * 16, drops[i] * 16);
+                if (drops[i] * 16 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+
+        function spawnWord() {
+            if (!playing) return;
+            const text = library[Math.floor(Math.random() * library.length)];
+            const el = document.createElement('div');
+            el.className = 'word-node';
+            el.innerText = text;
+            const y = Math.random() * (window.innerHeight - 300) + 100;
+            const wordObj = { el, text, x: window.innerWidth, y: y, speed: 2.5 + (score / 4000), dead: false };
+            el.style.top = y + 'px';
+            gameArea.appendChild(el);
+            words.push(wordObj);
+        }
+
+        function gameLoop(time) {
+            if (!playing) return;
+            drawMatrix();
+            if (time - lastSpawn > spawnRate) {
+                spawnWord();
+                lastSpawn = time;
+                spawnRate = Math.max(600, 1800 - (score / 20));
+            }
+            for (let i = words.length - 1; i >= 0; i--) {
+                const w = words[i];
+                if(w.dead) continue;
+                w.x -= w.speed;
+                w.el.style.transform = `translateX(${w.x}px)`;
+                if (w.x < 50) {
+                    health -= 10;
+                    healthEl.innerText = health + "%";
+                    body.classList.add('shake');
+                    setTimeout(() => body.classList.remove('shake'), 200);
+                    w.el.remove();
+                    words.splice(i, 1);
+                    if (health <= 0) endGame();
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        input.addEventListener('input', () => {
+            const val = input.value.toUpperCase().trim();
+            const idx = words.findIndex(w => w.text === val && !w.dead);
+            if (idx !== -1) {
+                const target = words[idx];
+                target.dead = true;
+                score += 150;
+                scoreEl.innerText = score.toString().padStart(6, '0');
+                target.el.style.setProperty('--x', `${target.x}px`);
+                target.el.style.transform = `translateX(${target.x}px)`; 
+                target.el.classList.add('explode');
+                setTimeout(() => {
+                    target.el.remove();
+                    words.splice(words.indexOf(target), 1);
+                }, 400);
+                input.value = "";
+            }
+        });
+
+        function triggerExitSequence() {
+            playing = false;
+            
+       
+            const abortOverlay = document.getElementById('abort-overlay');
+            abortOverlay.style.display = 'flex';
+            body.classList.add('system-crash');
+            body.style.opacity = '0';
+
+     
+            words.forEach(w => {
+                w.dead = true;
+                w.el.style.setProperty('--x', `${w.x}px`);
+                w.el.classList.add('explode');
+            });
+
+            setTimeout(() => {
+                window.location.href = '../vault.html';
+            }, 2000);
+        }
+
+        function endGame() {
+            playing = false;
+            location.reload(); 
+        }
+
+        window.addEventListener('resize', initMatrix);
+        initMatrix();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

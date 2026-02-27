@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KRAKEN | TACTICAL COMMAND V2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --neon: #00f2ff; 
+            --warning: #ff003c;
+            --safe: #00ff88;
+            --bg-dark: #00040a;
+            --smasher-pink: #ff00ff;
+            --hunter-green: #00ffaa;
+            --scrap-gold: #ffd700;
+            --glow: drop-shadow(0 0 8px var(--neon));
+        }
+
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); overflow: hidden; 
+            font-family: 'Orbitron', sans-serif; color: #fff; text-transform: uppercase; 
+        }
+
+        body::before {
+            content: " "; position: absolute; inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%; z-index: 1000; pointer-events: none;
+        }
+
+        /* --- ABORT OVERLAY --- */
+        #abort-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle, rgba(20, 0, 5, 0.95) 0%, rgba(0, 0, 0, 1) 100%);
+            z-index: 5000; display: none; flex-direction: column;
+            justify-content: center; align-items: center; pointer-events: none;
+            border-top: 2px solid var(--warning); border-bottom: 2px solid var(--warning);
+        }
+
+        #abort-overlay::after {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--warning); box-shadow: 0 0 20px var(--warning);
+            animation: abort-scan 0.6s linear infinite;
+        }
+
+        .abort-text {
+            font-size: 6rem; font-weight: 900; color: #fff;
+            text-shadow: 0 0 20px var(--warning); letter-spacing: 20px; margin: 0;
+            animation: glitch-vibrate 0.15s infinite;
+        }
+
+        .abort-subtext {
+            font-family: 'Share Tech Mono'; font-size: 1.1rem; color: var(--warning);
+            padding: 5px 20px; margin-top: 15px; letter-spacing: 5px; border-left: 2px solid var(--warning);
+        }
+
+        @keyframes abort-scan {
+            0% { top: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        @keyframes glitch-vibrate {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px) skewX(2deg); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px) skewX(-2deg); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .system-crash {
+            filter: brightness(0.4) contrast(1.5) blur(15px) grayscale(1);
+            transition: all 2s cubic-bezier(0.4, 0, 1, 1) !important;
+        }
+
+        /* --- UI ADJUSTMENTS (FIXED OVERLAP) --- */
+        .nav-header { 
+            position: fixed; 
+            top: 20px; 
+            left: 20px; 
+            z-index: 2000; 
+        }
+
+        .back-vault {
+            background: rgba(0, 15, 30, 0.8); border: 1px solid var(--neon);
+            color: var(--neon); font-family: 'Share Tech Mono';
+            padding: 10px 20px; cursor: pointer; text-decoration: none;
+            font-size: 12px; letter-spacing: 2px; transition: 0.3s;
+            clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .back-vault:hover { background: var(--neon); color: #000; box-shadow: 0 0 15px var(--neon); }
+
+        #ui-top {
+            position: absolute; 
+            top: 20px; 
+            width: calc(100% - 40px); 
+            left: 20px;
+            display: flex; 
+            justify-content: flex-end; /* Pushes stats to the right to avoid back button */
+            gap: 20px;
+            z-index: 10;
+            font-family: 'Share Tech Mono';
+        }
+
+        .stat-card {
+            background: rgba(0, 15, 30, 0.7); border-left: 3px solid var(--neon);
+            padding: 10px 20px; letter-spacing: 2px;
+            min-width: 180px;
+        }
+
+        #fleet-stats {
+            position: absolute; 
+            left: 20px; 
+            top: 100px; /* Moved down to clear the nav button */
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px;
+            z-index: 10;
+        }
+
+        /* --- REST OF UI --- */
+        .hud-bracket { position: fixed; width: 40px; height: 40px; border: 1px solid var(--neon); z-index: 600; opacity: 0.3; }
+        .tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+        .tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+        .bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+        .br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+        #wave-notify {
+            position: absolute; top: 40%; width: 100%; text-align: center;
+            font-size: 5rem; font-weight: 900; color: var(--neon);
+            opacity: 0; transition: 0.5s; pointer-events: none; z-index: 20;
+            filter: drop-shadow(0 0 20px var(--neon));
+        }
+
+        .drone-unit {
+            font-family: 'Share Tech Mono'; font-size: 11px; padding: 10px;
+            background: rgba(0, 15, 30, 0.7); border: 1px solid rgba(0, 242, 255, 0.2);
+            width: 180px; position: relative;
+        }
+        .drone-unit::before {
+            content: ""; position: absolute; left: -3px; top: 0; height: 100%; width: 3px; background: var(--c);
+        }
+
+        #xp-bar-wrap {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            width: 40%; height: 4px; background: rgba(255,255,255,0.1);
+        }
+        #xp-fill { width: 0%; height: 100%; background: var(--neon); box-shadow: 0 0 10px var(--neon); transition: 0.3s; }
+        .xp-label {
+            position: absolute; top: -20px; width: 100%; text-align: center;
+            font-family: 'Share Tech Mono'; font-size: 10px; color: var(--neon); opacity: 0.7;
+        }
+
+        #choice-menu {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 4, 10, 0.95); border: 1px solid var(--neon);
+            padding: 40px; z-index: 100; display: none; text-align: center;
+            box-shadow: 0 0 50px rgba(0, 242, 255, 0.2);
+        }
+        .upgrade-btn {
+            background: transparent; border: 1px solid var(--neon); color: var(--neon);
+            padding: 20px; margin: 10px; cursor: pointer; width: 260px;
+            font-family: 'Orbitron'; font-size: 12px; transition: 0.3s;
+        }
+        .upgrade-btn:hover { background: var(--neon); color: #000; box-shadow: 0 0 20px var(--neon); }
+
+        canvas { display: block; background: radial-gradient(circle, #001a2e 0%, #00040a 100%); }
+    </style>
+</head>
+<body>
+
+    <div id="abort-overlay">
+        <h2 class="abort-text">ABORT</h2>
+        <div class="abort-subtext">TERMINATING_SESSION // CONNECTION_REDACTED</div>
+    </div>
+
+    <div class="nav-header">
+        <button class="back-vault" onclick="exitSequence()">
+            <span>&lt;</span> RETURN_TO_VAULT
+        </button>
+    </div>
+
+    <div id="ui-top">
+        <div class="stat-card">SCRAP_RESERVE: <span id="scrap-count" style="color:var(--neon)">0</span></div>
+        <div class="stat-card" style="border-color: var(--warning)">CORE_INTEGRITY: <span id="hp">100</span>%</div>
+    </div>
+
+    <div class="hud-bracket tl"></div><div class="hud-bracket tr"></div>
+    <div class="hud-bracket bl"></div><div class="hud-bracket br"></div>
+
+    <div id="wave-notify">WAVE 1</div>
+
+    <div id="fleet-stats">
+        <div class="drone-unit" id="lvl-hunter" style="--c: var(--hunter-green)">UNIT: HUNTER_AI<br><span style="opacity:0.5">STATUS: OFFLINE</span></div>
+        <div class="drone-unit" id="lvl-smasher" style="--c: var(--smasher-pink)">UNIT: SMASHER_AI<br><span style="opacity:0.5">STATUS: OFFLINE</span></div>
+    </div>
+
+    <div id="xp-bar-wrap">
+        <div class="xp-label">SYSTEM_EVOLUTION_PROGRESS</div>
+        <div id="xp-fill"></div>
+    </div>
+
+    <div id="choice-menu">
+        <div style="font-size: 10px; color: var(--neon); margin-bottom: 20px; letter-spacing: 5px;">// UPGRADE_SEQUENCE_AVAILABLE</div>
+        <div id="options-container"></div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+<script>
+  
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const abortOverlay = document.getElementById('abort-overlay');
+    let W, H;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
+
+    let scrap = 0, health = 100, paused = false, currentWave = 1;
+    let xp = 0, xpToNextLevel = 100;
+    let enemies = [], projectiles = [], particles = [], drops = [], drones = { hunter: null, smasher: null };
+    let waveInProgress = false, enemiesSpawned = 0, enemiesInWave = 10;
+    let lastDamageTime = Date.now();
+    const core = { r: 55, pulse: 0 };
+
+    const ENEMY_TYPES = {
+        normal: { r: 12, hp: 1, speed: 1.2, color: '#ff4757' },
+        tank: { r: 25, hp: 6, speed: 0.5, color: '#e74c3c' },
+        dasher: { r: 8, hp: 1, speed: 3.8, color: '#f1c40f' },
+        ghost: { r: 12, hp: 2, speed: 1.0, color: 'rgba(255,255,255,0.4)', ghost: true },
+        splitter: { r: 18, hp: 3, speed: 0.8, color: '#9b59b6', split: true },
+        medic: { r: 14, hp: 2, speed: 1.1, color: '#2ecc71', healer: true },
+        shielder: { r: 15, hp: 4, speed: 0.7, color: '#3498db', shielded: true },
+        kamikaze: { r: 10, hp: 1, speed: 2.2, color: '#e67e22', explosive: true },
+        disruptor: { r: 14, hp: 3, speed: 1.0, color: '#1abc9c', debuff: true },
+        titan: { r: 40, hp: 20, speed: 0.3, color: '#7f8c8d' }
+    };
+
+    function exitSequence() {
+        paused = true;
+        abortOverlay.style.display = 'flex';
+        document.body.classList.add('system-crash');
+        document.body.style.opacity = '0';
+        setTimeout(() => {
+            window.location.href = '../vault.html';
+        }, 2000);
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.color = color;
+            this.size = Math.random() * 3 + 1;
+            this.vx = (Math.random() - 0.5) * 10;
+            this.vy = (Math.random() - 0.5) * 10;
+            this.life = 1.0;
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            this.life -= 0.02;
+        }
+        draw() {
+            ctx.globalAlpha = this.life;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    class ScrapDrop {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            this.r = 4;
+            this.targetX = W/2; this.targetY = H/2;
+            this.speed = 0.5;
+        }
+        update() {
+            let angle = Math.atan2(this.targetY - this.y, this.targetX - this.x);
+            this.speed += 0.2;
+            this.x += Math.cos(angle) * this.speed;
+            this.y += Math.sin(angle) * this.speed;
+            if(Math.hypot(this.x - W/2, this.y - H/2) < 40) return true;
+            return false;
+        }
+        draw() {
+            ctx.fillStyle = '#ffd700';
+            ctx.shadowBlur = 10; ctx.shadowColor = '#ffd700';
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    class Enemy {
+        constructor(type, x, y, isMini = false) {
+            this.type = type;
+            const config = ENEMY_TYPES[type];
+            this.r = isMini ? config.r/2 : config.r;
+            const scale = 1 + (currentWave * 0.2);
+            this.hp = Math.ceil((isMini ? config.hp/2 : config.hp) * scale);
+            this.maxHp = this.hp;
+            this.speed = config.speed * (1 + (currentWave * 0.05));
+            this.color = config.color;
+            this.ghost = config.ghost;
+            this.flash = 0;
+            
+            if (x !== undefined) { this.x = x; this.y = y; } 
+            else {
+                const edge = Math.floor(Math.random() * 4);
+                if(edge === 0) { this.x = Math.random() * W; this.y = -40; }
+                else if(edge === 1) { this.x = W + 40; this.y = Math.random() * H; }
+                else if(edge === 2) { this.x = Math.random() * W; this.y = H + 40; }
+                else { this.x = -40; this.y = Math.random() * H; }
+            }
+        }
+        update() {
+            const angle = Math.atan2(H/2 - this.y, W/2 - this.x);
+            this.x += Math.cos(angle) * this.speed;
+            this.y += Math.sin(angle) * this.speed;
+            if(this.flash > 0) this.flash--;
+        }
+        draw() {
+            ctx.fillStyle = this.flash > 0 ? "white" : this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+            if(this.hp > 1) {
+                ctx.fillStyle = "white"; ctx.font = "bold 10px 'Share Tech Mono'";
+                ctx.fillText(this.hp, this.x - 5, this.y + 4);
+            }
+        }
+    }
+
+    class AutonomousDrone {
+        constructor(type) {
+            this.type = type; this.level = 1; this.x = W/2; this.y = H/2;
+            this.vx = 0; this.vy = 0; this.color = type === 'smasher' ? '#ff00ff' : '#00ffaa';
+        }
+        update() {
+            let target = null, minDist = Infinity;
+            enemies.forEach(e => {
+                let d = Math.hypot(e.x - this.x, e.y - this.y);
+                if (d < minDist) { minDist = d; target = e; }
+            });
+            let destX = target ? target.x : W/2, destY = target ? target.y : H/2;
+            let angle = Math.atan2(destY - this.y, destX - this.x);
+            let accel = 0.5 + (this.level * 0.1);
+            this.vx += Math.cos(angle) * accel; this.vy += Math.sin(angle) * accel;
+            this.vx *= 0.92; this.vy *= 0.92; this.x += this.vx; this.y += this.vy;
+            if(this.x<20 || this.x>W-20) this.vx*=-1; if(this.y<20 || this.y>H-20) this.vy*=-1;
+
+            if (this.type === 'smasher') {
+                enemies.forEach((e, i) => {
+                    if (Math.hypot(this.x - e.x, this.y - e.y) < e.r + 15) {
+                        damageEnemy(i, 2 + this.level); this.vx *= -1;
+                    }
+                });
+            } else if (this.type === 'hunter' && target && Math.random() > (0.96 - this.level*0.01)) {
+                if (minDist < 500) projectiles.push({x: this.x, y: this.y, vx: Math.cos(angle)*15, vy: Math.sin(angle)*15, color: this.color});
+            }
+        }
+        draw() {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(Math.atan2(this.vy, this.vx));
+            ctx.fillStyle = this.color; 
+            ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-12,-12); ctx.lineTo(-12,12); ctx.fill(); 
+            ctx.restore(); ctx.shadowBlur = 0;
+        }
+    }
+
+    function damageEnemy(i, amt) {
+        let e = enemies[i]; if(!e) return;
+        e.hp -= amt; e.flash = 3;
+        for(let p=0; p<3; p++) particles.push(new Particle(e.x, e.y, e.color));
+        if(e.hp <= 0) {
+            for(let p=0; p<15; p++) particles.push(new Particle(e.x, e.y, e.color));
+            drops.push(new ScrapDrop(e.x, e.y));
+            enemies.splice(i, 1);
+            if(enemies.length === 0 && enemiesSpawned >= enemiesInWave) {
+                waveInProgress = false; currentWave++; setTimeout(startWave, 3000);
+            }
+        }
+    }
+
+    function startWave() {
+        waveInProgress = true; enemiesSpawned = 0;
+        enemiesInWave = 10 + (currentWave * 5);
+        const n = document.getElementById('wave-notify');
+        n.innerText = "WAVE_" + currentWave; n.style.opacity = 1;
+        setTimeout(() => n.style.opacity = 0, 2000);
+    }
+
+    function gainXP(amt) {
+        xp += amt; scrap += amt; 
+        document.getElementById('scrap-count').innerText = scrap;
+        if(xp >= xpToNextLevel) showUpgrade();
+        document.getElementById('xp-fill').style.width = (xp/xpToNextLevel)*100 + "%";
+    }
+
+    function showUpgrade() {
+        paused = true; const c = document.getElementById('options-container'); c.innerHTML = "";
+        const opt = (t, d, a) => { 
+            let b = document.createElement('button'); b.className='upgrade-btn'; 
+            b.innerHTML=`<b>${t}</b><br><span style="font-size:9px; opacity:0.6">${d}</span>`; b.onclick=a; c.appendChild(b); 
+        };
+        if(!drones.hunter) opt("INITIALIZE_HUNTER", "Deploy Long-range Interceptor", () => {drones.hunter = new AutonomousDrone('hunter'); closeMenu();});
+        else opt("UPGRADE_HUNTER", "Increase Plasma Velocity", () => {drones.hunter.level++; closeMenu();});
+        if(!drones.smasher) opt("INITIALIZE_SMASHER", "Deploy Kinetic Striker", () => {drones.smasher = new AutonomousDrone('smasher'); closeMenu();});
+        else opt("UPGRADE_SMASHER", "Increase Impact Force", () => {drones.smasher.level++; closeMenu();});
+        document.getElementById('choice-menu').style.display = 'block';
+    }
+
+    function closeMenu() {
+        xp = 0; xpToNextLevel += 200; paused = false;
+        document.getElementById('choice-menu').style.display = 'none';
+        if(drones.hunter) document.getElementById('lvl-hunter').innerHTML = `UNIT: HUNTER_AI<br>STATUS: LVL_${drones.hunter.level}`;
+        if(drones.smasher) document.getElementById('lvl-smasher').innerHTML = `UNIT: SMASHER_AI<br>STATUS: LVL_${drones.smasher.level}`;
+        loop();
+    }
+
+    function loop() {
+        if(paused) return;
+        ctx.fillStyle = 'rgba(0,4,10,0.3)'; ctx.fillRect(0,0,W,H);
+        
+        ctx.strokeStyle = 'rgba(0, 242, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for(let i=0; i<W; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+        for(let i=0; i<H; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke(); }
+
+        core.pulse += 0.05;
+        let pSize = Math.sin(core.pulse) * 5;
+        ctx.strokeStyle = varColor('--neon'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W/2, H/2, core.r + pSize, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([5, 15]); ctx.beginPath(); ctx.arc(W/2, H/2, core.r + 15, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+
+        if (Date.now() - lastDamageTime > 10000 && health < 100 && frameCount % 60 === 0) {
+            health++; document.getElementById('hp').innerText = health;
+        }
+
+        if(drones.hunter) drones.hunter.update(), drones.hunter.draw();
+        if(drones.smasher) drones.smasher.update(), drones.smasher.draw();
+
+        particles.forEach((p, i) => { p.update(); p.draw(); if(p.life <= 0) particles.splice(i, 1); });
+        drops.forEach((d, i) => { if(d.update()) { drops.splice(i, 1); gainXP(20); } else { d.draw(); } });
+
+        projectiles.forEach((p, i) => {
+            p.x += p.vx; p.y += p.vy; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4);
+            enemies.forEach((e, ei) => {
+                if(Math.hypot(p.x-e.x, p.y-e.y) < e.r) { projectiles.splice(i, 1); damageEnemy(ei, 1); }
+            });
+            if(p.x < 0 || p.x > W || p.y < 0 || p.y > H) projectiles.splice(i, 1);
+        });
+
+        enemies.forEach((e, i) => {
+            e.update(); e.draw();
+            if(Math.hypot(W/2-e.x, H/2-e.y) < core.r) {
+                enemies.splice(i, 1); health -= 10; lastDamageTime = Date.now();
+                document.getElementById('hp').innerText = health;
+                for(let p=0; p<20; p++) particles.push(new Particle(W/2, H/2, '#ff003c'));
+                if(health <= 0) { alert("SYSTEM FAILURE: WAVE " + currentWave); location.reload(); }
+            }
+        });
+        frameCount++;
+        requestAnimationFrame(loop);
+    }
+    let frameCount = 0;
+
+    function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+    setInterval(() => {
+        if(paused || !waveInProgress || enemiesSpawned >= enemiesInWave) return;
+        const types = Object.keys(ENEMY_TYPES);
+        const available = types.slice(0, Math.min(types.length, 2 + Math.floor(currentWave/2)));
+        enemies.push(new Enemy(available[Math.floor(Math.random()*available.length)]));
+        enemiesSpawned++;
+    }, Math.max(200, 1000 - (currentWave * 50)));
+
+    canvas.onmousedown = (e) => {
+        drops.forEach((d, i) => { if(Math.hypot(e.clientX-d.x, e.clientY-d.y) < 40) { drops.splice(i, 1); gainXP(20); } });
+        enemies.forEach((en, i) => { if(!en.ghost && Math.hypot(e.clientX-en.x, e.clientY-en.y) < en.r + 20) damageEnemy(i, 1); });
+    };
+
+    startWave(); loop();
+</script>
+</body>
+</html>

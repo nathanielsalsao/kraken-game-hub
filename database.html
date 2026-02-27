@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KRAKEN_X // DATABASE_ADVANCED</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link rel="stylesheet" href="style/style.css">
+    <link rel="stylesheet" href="style/vault.css"><link rel="icon" type="image/jpeg" href="logo.jpg">
+    <style>
+        :root {
+            --neon: #00f2ff;
+            --warning: #ff003c;
+            --bg: #00040a;
+            --card: rgba(0, 20, 30, 0.6);
+        }
+
+        /* HUD Stats Layout */
+        .hud-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .hud-item {
+            background: rgba(0, 242, 255, 0.05);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            padding: 10px;
+            font-family: 'Share Tech Mono';
+        }
+
+        .hud-label { font-size: 0.7rem; color: var(--neon); letter-spacing: 1px; }
+        .hud-bar { height: 4px; background: rgba(255,255,255,0.1); margin-top: 5px; position: relative; overflow: hidden; }
+        .hud-fill { height: 100%; background: var(--neon); width: 50%; transition: width 0.5s ease; box-shadow: 0 0 10px var(--neon); }
+
+        .db-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 180px); /* Adjusted for HUD */
+        }
+
+        .data-table-section {
+            background: var(--card);
+            border: 1px solid rgba(0, 242, 255, 0.1);
+            border-radius: 4px;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Hex Preview Popup */
+        .hex-preview {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            background: #000;
+            border: 1px solid var(--warning);
+            padding: 10px;
+            font-size: 0.65rem;
+            font-family: 'Share Tech Mono';
+            color: var(--warning);
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
+        }
+
+        tr:hover ~ .hex-preview, tr:hover .hex-preview { opacity: 1; }
+
+        table { width: 100%; border-collapse: collapse; font-family: 'Share Tech Mono'; }
+        th { text-align: left; color: var(--neon); border-bottom: 1px solid var(--neon); padding: 10px; font-family: 'Orbitron'; font-size: 0.8rem; }
+        td { padding: 12px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.9rem; color: rgba(255, 255, 255, 0.8); }
+        tr:hover { background: rgba(0, 242, 255, 0.1); cursor: crosshair; }
+
+        .status-badge { padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: bold; }
+        .status-active { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+        .status-locked { background: rgba(255, 0, 60, 0.2); color: var(--warning); }
+
+        .terminal-sidebar { background: #000; border: 1px solid var(--neon); display: flex; flex-direction: column; box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.1); }
+        #log-entries { padding: 15px; font-family: 'Share Tech Mono'; font-size: 0.85rem; color: var(--neon); flex-grow: 1; overflow-y: auto; }
+        .log-line { margin-bottom: 8px; line-height: 1.4; border-left: 2px solid transparent; padding-left: 5px; }
+        .log-line:hover { border-left-color: var(--neon); background: rgba(0, 242, 255, 0.05); }
+        .log-time { opacity: 0.5; margin-right: 8px; }
+    </style>
+    <link rel="icon" type="image/jpeg" href="image/logo.jpg">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <aside id="sidebar">
+        
+        <div class="sidebar-header">KRAKEN_X</div>
+        <a href="vault.html" class="nav-item"><ion-icon name="flash"></ion-icon><span>CORE_STATION</span></a>
+        <a href="database.html" class="nav-item active"><ion-icon name="server-outline"></ion-icon><span>DATABASE</span></a>
+        <a href="uplink.html" class="nav-item"><ion-icon name="cloud-upload-outline"></ion-icon><span>UPLINK</span></a>
+        <a href="end.html" class="nav-item"><ion-icon name="ribbon-outline"></ion-icon><span>END_PROTOCOL</span></a>
+        <div class="sidebar-footer" style="margin-top: auto;">
+            <a href="javascript:void(0)" onclick="lockVault()" class="nav-item logout"><ion-icon name="lock-closed-outline"></ion-icon><span>SECURE_EXIT</span></a>
+        </div>
+    </aside>
+
+    <nav id="top-bar">
+        <div class="system-title"><div class="status-dot"></div>SYSTEM_DATABASE_CORE <span class="version-tag">DB-V2.0</span></div>
+        <div id="system-time">00:00:00</div>
+    </nav>
+
+    <main id="main-content" style="padding: 20px;">
+        
+        <div class="hud-grid">
+            <div class="hud-item">
+                <div class="hud-label">CPU_CORE_LOAD</div>
+                <div class="hud-bar"><div class="hud-fill" id="cpu-fill" style="width: 42%;"></div></div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">MEMORY_SEGMENT_01</div>
+                <div class="hud-bar"><div class="hud-fill" id="mem-fill" style="width: 68%;"></div></div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">UPLINK_STABILITY</div>
+                <div class="hud-bar"><div class="hud-fill" id="up-fill" style="width: 95%; background: #00ff88; box-shadow: 0 0 10px #00ff88;"></div></div>
+            </div>
+        </div>
+
+        <div class="db-container">
+            <section class="data-table-section">
+                <h3 style="margin-top:0; letter-spacing: 2px; font-size: 0.9rem;">ENCRYPTED_FILES_INDEX [SECTOR_DEEP_VALLEY]</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>FILE_NAME</th>
+                            <th>SECTOR</th>
+                            <th>STATUS</th>
+                            <th>SIZE</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr onmouseover="showHex('FF 00 A1 4C')"><td>Protocol_X.dll</td><td>Alpha-01</td><td><span class="status-badge status-active">ACTIVE</span></td><td>44.2kb</td></tr>
+                        <tr onmouseover="showHex('DE AD BE EF')"><td>Vault_Key.enc</td><td>Core-99</td><td><span class="status-badge status-locked">LOCKED</span></td><td>1.2mb</td></tr>
+                        <tr onmouseover="showHex('53 41 4C 41 4F')"><td>User_Salao_Root.log</td><td>Admin-0</td><td><span class="status-badge status-active">OPEN</span></td><td>8.5kb</td></tr>
+                        <tr onmouseover="showHex('00 11 00 11')"><td>Bypass_Module.vbx</td><td>Deep-4</td><td><span class="status-badge status-locked">LOCKED</span></td><td>256kb</td></tr>
+                        <tr onmouseover="showHex('72 6F 6F 74')"><td>Neural_Map.json</td><td>Bio-Sec</td><td><span class="status-badge status-active">SYNCING</span></td><td>3.1mb</td></tr>
+                    </tbody>
+                </table>
+
+                <div id="hex-box" class="hex-preview">
+                    RAW_DATA_DUMP:<br>
+                    <span id="hex-content">00 00 00 00</span>
+                </div>
+            </section>
+
+            <section class="terminal-sidebar">
+                <div style="background: var(--neon); color: #000; padding: 5px 10px; font-weight: bold; font-size: 0.75rem; display:flex; justify-content:space-between;">
+                    <span>LIVE_SYSTEM_TRAFFIC</span>
+                    <span id="pulse" style="animation: blink 1s infinite;">●</span>
+                </div>
+                <div id="log-entries"></div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('system-time').innerText = now.toLocaleTimeString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        setInterval(() => {
+            document.getElementById('cpu-fill').style.width = Math.floor(Math.random() * 40 + 20) + "%";
+            document.getElementById('mem-fill').style.width = Math.floor(Math.random() * 20 + 60) + "%";
+        }, 3000);
+
+  
+        function showHex(code) {
+            const box = document.getElementById('hex-box');
+            document.getElementById('hex-content').innerText = code + " " + Math.random().toString(16).slice(2,8).toUpperCase();
+            box.style.opacity = "1";
+        }
+
+        const logs = [
+            "Accessing sector 7G...", "Packet [0x44] intercepted.", "Handshake with UPLINK: OK",
+            "Clearing local cache...", "Warning: Unauthorized ping.", "Root admin Nathaniel active.",
+            "Protocol_X decrypted.", "Establishing ghost relay...", "Bypass sequence initialized."
+        ];
+
+        function addLog() {
+            const container = document.getElementById('log-entries');
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            div.innerHTML = `<span class="log-time">[${time}]</span>> ${logs[Math.floor(Math.random() * logs.length)]}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            if(container.children.length > 25) container.removeChild(container.children[0]);
+        }
+        setInterval(addLog, 2000);
+    </script>
+</body>
+</html>

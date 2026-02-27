@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KRAKEN_X // FINAL_UPGRADE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/jpeg" href="logo.jpg">
+    <style>
+        :root { --neon: #00f2ff; --bg: #00040a; }
+        body, html { 
+            margin: 0; padding: 0; background: var(--bg); color: #fff; 
+            font-family: 'Orbitron', sans-serif; overflow: hidden; height: 100%;
+        }
+        #display-center {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; width: 90%; z-index: 10;
+        }
+        .role-text { font-family: 'Share Tech Mono'; color: var(--neon); letter-spacing: 5px; font-size: 1.1rem; margin-bottom: 10px; min-height: 1.5em; opacity: 0.7; }
+        .name-text { font-weight: 900; font-size: 3.2rem; letter-spacing: 8px; text-transform: uppercase; min-height: 1.5em; }
+        .cursor { display: inline-block; width: 10px; height: 1.1em; background: var(--neon); margin-left: 8px; animation: blink 0.8s infinite; vertical-align: middle; box-shadow: 0 0 8px var(--neon); }
+        @keyframes blink { 50% { opacity: 0; } }
+        #ui-layer { position: fixed; inset: 0; z-index: 9999; background: #000; display: flex; justify-content: center; align-items: center; }
+        .btn { background: transparent; border: 1px solid var(--neon); color: var(--neon); padding: 20px 40px; cursor: pointer; font-family: 'Orbitron'; letter-spacing: 4px; font-weight: 900; }
+    </style>
+</head>
+<body>
+
+    <audio id="ambient-bg" loop>
+        <source src="https://codeskulptor-demos.commondatastorage.googleapis.com/descent/background%20music.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="ui-layer">
+        <button class="btn" id="start-btn">INITIALIZE_DECRYPT</button>
+    </div>
+
+    <div id="display-center">
+        <div id="active-role" class="role-text"></div>
+        <div id="active-name" class="name-text"></div>
+        <div class="cursor"></div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const bgMusic = document.getElementById('ambient-bg');
+
+        function playKeySound(type = 'default') {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const bufferSize = audioCtx.sampleRate * 0.04;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+
+ 
+            if (type === 'space') filter.frequency.value = 700;
+            else if (type === 'erase') filter.frequency.value = 450;
+            else filter.frequency.value = 1800; 
+            
+            const gain = audioCtx.createGain();
+
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        async function typeText(element, text, speed) {
+            for (let char of text) {
+                element.innerHTML += char;
+                playKeySound(char === " " ? 'space' : 'default');
+                await new Promise(r => setTimeout(r, speed + (Math.random() * 15)));
+            }
+        }
+
+        async function eraseText(element, speed) {
+            let text = element.innerHTML;
+            while (text.length > 0) {
+                text = text.slice(0, -1);
+                element.innerHTML = text;
+                playKeySound('erase'); 
+                await new Promise(r => setTimeout(r, speed));
+            }
+        }
+
+        document.getElementById('start-btn').addEventListener('click', async () => {
+           
+            bgMusic.volume = 0.05;
+            bgMusic.play();
+            
+            document.getElementById('ui-layer').style.display = 'none';
+            
+            const team = [
+                { r: "SYSTEM_ROOT", n: "NATHANIEL SALAO" },
+                { r: "VISUAL_ARCHITECT", n: "Concepcion, Denise Beyonce C." },
+                { r: "NARRATIVE_ENGINEER", n: "Altuna, Sophia Beatriz P." },
+                { r: "SYSTEM_ARCHITECT", n: "Pobocan, James Raniel" },
+                { r: "CORE_PROGRAMMER", n: "Agdeppa, Ashley S." },
+                { r: "WORLD_DESIGNER", n: "Cadapan, John Lester M." },
+                { r: "INTERFACE_LEAD", n: "Tan, Princess Ghieanne" },
+                { r: "SONIC_DIRECTOR", n: "Abunda, Samantha Joy A." },
+                { r: "OPERATIONS_MANAGER", n: "Briones, Paul Anthony D." },
+                { r: "INTEGRITY_CHECKER", n: "Fesico, Jayvhie Mae L." },
+                { r: "PROTOCOL", n: "SESSION_TERMINATED" }
+            ];
+
+            const roleEl = document.getElementById('active-role');
+            const nameEl = document.getElementById('active-name');
+
+            for (let member of team) {
+                if(member.r === "PROTOCOL") nameEl.style.color = "#ff003c";
+
+                await typeText(roleEl, member.r, 35);
+                await new Promise(r => setTimeout(r, 150));
+                await typeText(nameEl, member.n, 55);
+                
+                await new Promise(r => setTimeout(r, 2000));
+                
+                await eraseText(nameEl, 15);
+                await eraseText(roleEl, 10);
+                await new Promise(r => setTimeout(r, 400));
+            }
+            
+  
+            let fadeOut = setInterval(() => {
+                if (bgMusic.volume > 0.005) bgMusic.volume -= 0.005;
+                else {
+                    clearInterval(fadeOut);
+                    window.location.href = 'vault.html';
+                }
+            }, 50);
+        });
+    </script>
+</body>
+</html>
